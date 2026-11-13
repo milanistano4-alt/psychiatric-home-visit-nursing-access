@@ -1,0 +1,15 @@
+{
+  "description": "National 30-minute E2SFCA (truncated Gaussian decay, d0 = 30 min), normalised so that the population-weighted national mean equals 1. 500 m grid cells, 2020 population.",
+  "population_2020_total": 126146098.9941,
+  "grid_cells": 465895,
+  "stations_registered": 16359,
+  "stations_with_coordinates": 16345,
+  "facility_equivalents_with_positive_denominator": 16341,
+  "population_weighted_gini": 0.2829640489793748,
+  "share_population_relative_access_below_0_5": 0.1362486211444705,
+  "share_population_relative_access_above_2": 0.05326297673948879,
+  "share_population_zero_access": 0.01692420978075472,
+  "grid_cells_without_valid_road_snap": 141,
+  "population_without_valid_road_snap": 658.3735,
+  "note": "Equal supply per registered station; registration does not establish service provision or capacity. Zero access includes grid cells whose road connection could not be resolved."
+}

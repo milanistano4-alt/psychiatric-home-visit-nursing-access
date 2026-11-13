@@ -1,0 +1,5 @@
+density_quartile,municipalities,population_2020,density_min,density_max,e2sfca_pop_weighted_mean,e2sfca_municipal_median,coverage_15min_pct,coverage_30min_pct
+Q1,471,4031436,32.533,219.14,0.427,0.175,47.4,73.9
+Q2,471,13088154,219.687,511.427,0.585,0.494,81.8,94.9
+Q3,471,33824557,512.666,1668.233,0.816,0.72,97.0,99.3
+Q4,471,75201952,1669.426,23992.063,1.185,1.044,99.7,99.8
