@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this code or these results, please cite the article."
+title: "Spatial access to psychiatric home-visit nursing stations in Japan: code and aggregated results"
+authors:
+  - family-names: Takashima
+    given-names: Yoshiyuki
+    affiliation: "Nara Medical University"
+  # Co-authors to be added after author confirmation
+license: MIT
+version: "1.0.0"
+date-released: "2026-11-13"

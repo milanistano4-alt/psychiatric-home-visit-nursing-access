@@ -1,0 +1,9 @@
+# Versions used for the November 2026 reproduction run (Python 3.12.14)
+numpy==2.5.4
+pandas==3.1.0
+pyarrow==26.0.0
+scipy==1.18.1
+shapely==2.2.0
+psutil==7.2.2
+# Road-graph construction from OSM extracts also requires:
+osmium
