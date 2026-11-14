@@ -1,0 +1,31 @@
+"""Reproduce R200 fixed 30-minute FCA from recovered artifacts; never run partial scope."""
+from pathlib import Path
+import sys,json,hashlib,datetime
+import numpy as np,pandas as pd,pyarrow.dataset as ds
+R=Path.cwd()/'research';B=R/'codex';sys.path.insert(0,str(B/'R054_runtime'));from artifact_hash import artifact_digest
+src=B/'R322_A1_rederived';ev=R/'shared_results/collaborator_report_20261026/evidence';old=json.loads((ev/'original_national_FCA_summary.json').read_text(encoding='utf-8-sig'));batch=json.loads((src/'batch_job.json').read_text(encoding='utf-8'));assert batch['state']=='completed_all47_readback_hashes_match' and set(batch['completed'])=={f'{n:02d}' for n in range(1,48)}
+assert old['global_spatial_support_passed'] is True and old['scope_prefectures']==47 and old['tau_minutes']==30
+population=B/'R021_inputs/mesh500.parquet';assert artifact_digest(population)=='796bb7c90cca9c49d9d17ad0ae6a771322fb221fb2331b5a4410ecb466d12dd6'
+pop=pd.read_parquet(population,columns=['pref_code','MESH_ID','PTN_2020']);pop['pref_code']=pop.pref_code.astype(str).str.zfill(2);pop['MESH_ID']=pop.MESH_ID.astype(str);assert set(pop.pref_code)=={f'{n:02d}' for n in range(1,48)} and not pop.duplicated(['pref_code','MESH_ID']).any();w=pop.groupby('MESH_ID').PTN_2020.sum().sort_index();q=w.to_numpy(float);assert np.isfinite(q).all() and (q>=0).all();a=np.zeros(len(q));audits=[]
+def batches(p):
+ files=[str(f) for f in sorted(p.glob('*.parquet'))];assert files
+ for x in ds.dataset(files,format='parquet').scanner(columns=['g','o','t_exact'],batch_size=500000).to_batches():
+  d=x.to_pandas();yield d.g.to_numpy(np.int64),d.o.to_numpy(np.int64),d.t_exact.to_numpy(float)
+def decay(t):return (np.exp(-.5*(t/30)**2)-np.exp(-.5))/(1-np.exp(-.5))
+for n in range(1,48):
+ pc=f'{n:02d}'; d=src/('pref03_attempt2' if n==3 else 'pref'+pc);previous=json.loads((ev/f'pref{pc}_derived_matrix_job.json').read_text(encoding='utf-8-sig'));proof=d/'readback_validation.json';assert artifact_digest(proof)==previous['readback_validation_sha256'];v=json.loads(proof.read_text(encoding='utf-8'));assert v['state']=='completed_full_parent_subset_and_delta_independent_readback' and artifact_digest(d/'tt_origin.parquet')==v['derived_time_sha256']
+ for name,h in v['derived_metadata_sha256'].items():assert artifact_digest(d/name)==h
+ op=R/f'shared_results/R190_A1_all47_local_results/pref{pc}/origins_results.csv';expected=[h for k,h in old['input_hashes'].items() if f'pref{pc}\\analysis_reviewed_A1_R061\\origins_results.csv' in k];assert len(expected)==1 and artifact_digest(op)==expected[0]
+ o=pd.read_csv(d/'origins.csv',dtype={'omesh':str});prior=pd.read_csv(op,dtype={'omesh':str});sites=pd.read_csv(d/'sites.csv',dtype={'omesh':str});assert o.omesh.tolist()==prior.omesh.tolist();counts=sites[(sites.kind=='station') & sites.official_in_pilot.astype(bool)].groupby('o').size().reindex(range(len(o)),fill_value=0).to_numpy(float);assert np.array_equal(counts,prior.st_in.to_numpy(float))
+ geom=pd.read_parquet(d/'mesh_geom.parquet',columns=['MESH_ID']);ix=w.index.get_indexer(geom.MESH_ID.astype(str));assert (ix>=0).all() and not geom.MESH_ID.duplicated().any();den=np.zeros(len(counts))
+ for g,o_,t in batches(d/'tt_origin.parquet'):
+  assert np.isfinite(t).all() and (g>=0).all() and (g<len(ix)).all() and (o_>=0).all() and (o_<len(counts)).all();m=(t<=30)&(counts[o_]>0);den+=np.bincount(o_[m],weights=q[ix[g[m]]]*decay(t[m]),minlength=len(counts))
+ ratio=np.divide(counts,den,out=np.zeros_like(counts),where=den>0); contribution=np.zeros(len(q))
+ for g,o_,t in batches(d/'tt_origin.parquet'):
+  m=(t<=30)&(ratio[o_]>0);np.add.at(contribution,ix[g[m]],ratio[o_[m]]*decay(t[m]))
+ connected=float(counts[den>0].sum());mass=float(np.dot(q,contribution));assert abs(mass-connected)<=max(1e-6,connected*1e-7);a+=contribution;audits.append({'pref_code':pc,'owned_facilities':int(counts.sum()),'connected':connected,'weighted_sum':mass});print('verified',pc,flush=True)
+connected=sum(x['connected'] for x in audits);mass=float(np.dot(q,a));assert abs(mass-connected)<=max(1e-6,connected*1e-7);mean=mass/q.sum();assert mean>0;rel=a/mean;order=np.argsort(a);av=a[order];qv=q[order];gini=float(np.clip(np.dot(av*qv,2*np.cumsum(qv)-qv-qv.sum())/(qv.sum()*mass),0,1))
+metrics={'population_weighted_gini':gini,'zero_access_population_share':float(q[a==0].sum()/q.sum()),'relative_below_half_population_share':float(q[rel<.5].sum()/q.sum()),'relative_above_two_population_share':float(q[rel>2].sum()/q.sum()),'population_weighted_access_sum':mass};comparison={k:{'new':v,'recorded':old[k],'difference':v-old[k],'matches_at_1e-9':bool(abs(v-old[k])<=1e-9)} for k,v in metrics.items()};out=B/'R322_national_fca_independent';assert not out.exists();out.mkdir();pd.DataFrame({'MESH_ID':w.index,'population2020':q,'facility_equivalent_access':a,'relative_to_national_mean':rel}).to_parquet(out/'national_mesh_index.parquet',index=False);ix=w.index.get_indexer(pop.MESH_ID);pop['access']=a[ix];pop['relative']=rel[ix];per=[]
+for pc,d in pop.groupby('pref_code'):
+ total=float(d.PTN_2020.sum());per.append({'pref_code':pc,'population2020':total,'mean_absolute_access':float(np.dot(d.PTN_2020,d.access)/total),'mean_relative_to_national':float(np.dot(d.PTN_2020,d.relative)/total),'zero_access_population_share':float(d.loc[d.access.eq(0),'PTN_2020'].sum()/total)})
+pd.DataFrame(per).to_parquet(out/'prefecture_index.parquet',index=False);result={'state':'completed_independent_R200_reproduction' if all(x['matches_at_1e-9'] for x in comparison.values()) else 'completed_with_metric_differences_halt','scope_prefectures':47,'tau_minutes':30,'population_total':float(q.sum()),'connected_facility_equivalents':connected,'comparison':comparison,'by_prefecture':audits,'spatial_support':'Inherited from original national record; input geometry and old readback hashes matched; not a new all47 spatial audit','limitations':'Facility-equivalent geographic index, not observed clinical capacity or psychiatric need','created':datetime.datetime.now().astimezone().isoformat()};(out/'summary.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8');print(json.dumps({'state':result['state'],'comparison':comparison}),flush=True)
