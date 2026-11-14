@@ -2,7 +2,9 @@
 
 Code and aggregated results for the nationwide cross-sectional study of geographic access to stations registered for psychiatric home-visit nursing in Japan, using the enhanced two-step floating catchment area (E2SFCA) method.
 
-> Manuscript: *Geographic inequality in access to psychiatric home-visit nursing stations in Japan: a nationwide cross-sectional study using the enhanced two-step floating catchment area method* (under review). Citation and DOI will be added on publication.
+> Manuscript under review. Citation details will be added on publication.
+>
+> Authors: Yoshiyuki Takashima, Takemasa Ishikawa, Ryo Horiike
 
 ## Contents
 
@@ -19,7 +21,10 @@ Code and aggregated results for the nationwide cross-sectional study of geograph
 │   ├── national_summary.json
 │   ├── density_quartile_summary.csv
 │   └── municipality_access.csv
-└── code/                       Analysis code (see "Pipeline" below)
+└── code/
+    ├── data_acquisition/       Population data download and audit helpers
+    ├── pipeline/               Road graph, travel-time matrix and matrix-derivation modules
+    └── workflow/               Run scripts for each step (with input hash checks)
 ```
 
 ## Pipeline
@@ -28,17 +33,17 @@ Travel times are directed shortest paths (Dijkstra) on an OpenStreetMap drivable
 
 | Step | Script(s) | Output |
 |---|---|---|
-| 1. Regional road graphs from OSM extracts | `code/research/codex/build_reviewed_road_graph.py`, `run_R022_national_graph_build.py` | 8 regional graphs (`.npz` + metadata) |
-| 2. Merge into a national graph | `code/research/codex/merge_reviewed_road_graphs.py` (`code/research/handoff/R-022_rebuild_graph_guarded.py` runs it with hash checks) | national graph |
-| 3. Population input | `code/research/codex/build_R021_population_input.py` (helpers in `code/research/PHVN-20261024/scripts/`) | 500 m population grid (2020) |
-| 4. Travel-time matrices per prefecture | `code/research/codex/R023_runtime/traveltime_national_graph.py` with `pilot_config.py`, `graph_integrity.py`; memory adapter in `R032_memory_runtime/` | origin-to-cell travel times (≤60 min) |
-| 5. Added/relocated stations (delta origins) | `code/research/codex/R052_delta_worker.py`, `R052_delta_primitives.py`, `R037_mapped_numeric.py`, `run_R052_delta_controller.py` | delta matrices |
-| 6. Analysis matrices (parent subset + delta) | `code/research/codex/R322_A1_runtime_v2/R054_derive_worker.py`, `R054_frame_layout.py`; batch: `code/research/handoff/R-022_rederive_all47_guarded.py` | 47 prefecture matrices |
-| 7. National E2SFCA (30 min) | `code/research/handoff/R-022_全国E2SFCA独立再現.py` | national cell-level index and summary |
-| 8. Municipality density quartiles | `code/research/handoff/R-022_市区町村密度別E2SFCA集計.py`, check: `R-022_密度四分位_算術再確認.py` | `results/` |
-| 9. Rank correlations | `code/research/handoff/R-018_偏順位相関_独立再現.py` | Spearman / partial correlations |
+| 1. Regional road graphs from OSM extracts | `code/pipeline/build_reviewed_road_graph.py`, `run_R022_national_graph_build.py` | 8 regional graphs (`.npz` + metadata) |
+| 2. Merge into a national graph | `code/pipeline/merge_reviewed_road_graphs.py` (`code/workflow/rebuild_national_graph_guarded.py` runs it with hash checks) | national graph |
+| 3. Population input | `code/pipeline/build_R021_population_input.py` (helpers in `code/data_acquisition/`) | 500 m population grid (2020) |
+| 4. Travel-time matrices per prefecture | `code/pipeline/R023_runtime/traveltime_national_graph.py` with `pilot_config.py`, `graph_integrity.py`; memory adapter in `R032_memory_runtime/` | origin-to-cell travel times (≤60 min) |
+| 5. Added/relocated stations (delta origins) | `code/pipeline/R052_delta_worker.py`, `R052_delta_primitives.py`, `R037_mapped_numeric.py`, `run_R052_delta_controller.py` | delta matrices |
+| 6. Analysis matrices (parent subset + delta) | `code/pipeline/R322_A1_runtime_v2/R054_derive_worker.py`, `R054_frame_layout.py`; batch: `code/workflow/rederive_all47_matrices_guarded.py` | 47 prefecture matrices |
+| 7. National E2SFCA (30 min) | `code/workflow/national_e2sfca.py` | national cell-level index and summary |
+| 8. Municipality density quartiles | `code/workflow/municipality_density_quartiles.py`, check: `density_quartile_check.py` | `results/` |
+| 9. Rank correlations | `code/workflow/rank_correlations.py` | Spearman / partial correlations |
 
-`R-022_rebuild_three_guarded.py` regenerates the Kanagawa, Osaka and Nara matrices; `R-022_check_origin_station_alignment.py` checks origin–station alignment.
+`code/workflow/rebuild_three_prefectures_guarded.py` regenerates the Kanagawa, Osaka and Nara matrices; `check_origin_station_alignment.py` checks origin–station alignment.
 
 ### E2SFCA specification
 
@@ -50,13 +55,13 @@ Travel times are directed shortest paths (Dijkstra) on an OpenStreetMap drivable
 
 ### Status of the code
 
-The scripts are published as used. They reference the original project folder layout (`research/codex/...`) and the input files described in `docs/data_sources.md`, and several scripts verify input hashes before running. They are not packaged as a one-command workflow. Full reproduction of steps 1–6 requires about 50 GB of free disk and 16 GB of memory (the national graph merge peaked at about 9 GB).
+The scripts are published as used. Internally they reference the original project folder layout, in which `code/pipeline/` was `research/codex/`, `code/workflow/` was `research/handoff/` and `code/data_acquisition/` was `research/PHVN-20261024/scripts/`; working-folder names that appear inside the scripts (e.g. `R322_...`) are internal job identifiers. They also reference the input files described in `docs/data_sources.md`, and several scripts verify input hashes before running. They are not packaged as a one-command workflow. Full reproduction of steps 1–6 requires about 50 GB of free disk and 16 GB of memory (the national graph merge peaked at about 9 GB).
 
 Python 3.12; package versions in `requirements.txt`.
 
 ### Changes made for publication
 
-The files are byte-identical to the versions used in the analysis (SHA-256 values in `CHECKSUMS.sha256`), with one exception: in `code/research/codex/run_R022_national_graph_build.py` a local scratch directory path containing a user name was replaced with `scratch/R022_indices`. Some helper modules (`graph_integrity.py`, `artifact_hash.py`) are included in more than one folder because the scripts import them from their own directory.
+The file contents are byte-identical to the versions used in the analysis (SHA-256 values in `CHECKSUMS.sha256`). From v1.0.1, folders and the run scripts in `code/workflow/` were renamed to descriptive English names without changing their contents. One edit was made: in `code/pipeline/run_R022_national_graph_build.py` a local scratch directory path containing a user name was replaced with `scratch/R022_indices`. Some helper modules (`graph_integrity.py`, `artifact_hash.py`) are included in more than one folder because the scripts import them from their own directory.
 
 ## Data availability
 
@@ -73,4 +78,4 @@ The files are byte-identical to the versions used in the analysis (SHA-256 value
 
 ## Contact
 
-Yoshiyuki Takashima, Nara Medical University, Faculty of Nursing (corresponding author). Contact details are given in the published article.
+Yoshiyuki Takashima, Nara Medical University (corresponding author). Contact details are given in the published article.

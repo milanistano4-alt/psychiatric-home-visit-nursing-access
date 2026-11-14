@@ -1,0 +1,30 @@
+{
+  "title": "Spatial access to psychiatric home-visit nursing stations in Japan: code and aggregated results",
+  "upload_type": "software",
+  "description": "Analysis code and aggregated municipality-level results for a nationwide cross-sectional study of geographic access to stations registered for psychiatric home-visit nursing in Japan, using the enhanced two-step floating catchment area (E2SFCA) method with a 30-minute catchment. Station-level data are available from the corresponding author on reasonable request.",
+  "creators": [
+    {
+      "name": "Takashima, Yoshiyuki",
+      "affiliation": "Nara Medical University"
+    },
+    {
+      "name": "Ishikawa, Takemasa",
+      "affiliation": "Nana-r Home-Visit Nursing Development Center; Osaka Metropolitan University; Osaka University",
+      "orcid": "0000-0003-0564-7172"
+    },
+    {
+      "name": "Horiike, Ryo",
+      "affiliation": "School of Nursing, Faculty of Medicine, Nara Medical University",
+      "orcid": "0000-0001-9126-3727"
+    }
+  ],
+  "license": "MIT",
+  "keywords": [
+    "psychiatric home-visit nursing",
+    "spatial accessibility",
+    "E2SFCA",
+    "Japan",
+    "community mental health"
+  ],
+  "version": "1.0.1"
+}
